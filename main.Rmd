@@ -1,0 +1,30 @@
+---
+title: "main"
+output: pdf_document
+date: "2024-07-20"
+---
+
+
+```{r}
+
+# import the csv
+
+series_matrix<- read.csv('./data/QBS103_GSE157103_series_matrix.csv')
+genes <- read.csv('./data/QBS103_GSE157103_genes.csv')
+
+```
+```{r}
+head(series_matrix)
+unique(series_matrix$disease_status) # disease status is one categorical 
+unique(series_matrix$mechanical_ventilation) # another categorial 
+unique(series_matrix$age) # this one is covariate 
+
+series_matrix
+
+
+```
+```{r}
+
+```
+
+
