@@ -7,24 +7,50 @@ date: "2024-07-20"
 
 ```{r}
 
+library(tidyverse)
+
 # import the csv
 
 series_matrix<- read.csv('./data/QBS103_GSE157103_series_matrix.csv')
 genes <- read.csv('./data/QBS103_GSE157103_genes.csv')
 
 ```
+
 ```{r}
 head(series_matrix)
 unique(series_matrix$disease_status) # disease status is one categorical 
 unique(series_matrix$mechanical_ventilation) # another categorial 
 unique(series_matrix$age) # this one is covariate 
 
+# let's merge these two data sets together 
+head(genes)
 series_matrix
 
+new_df <- series_matrix[c('participant_id', 'disease_status', 'mechanical_ventilation', 'age') ]
+
+one_genes <- genes[29, 2:length(genes)]
+temp_df <- as.data.frame(t(one_genes))
+colnames(temp_df) <- c('AATK')
+
+new_df$AATK<- temp_df$AATK
+```
+
+```{r}
+library(ggplot2)
+
+# creating a histogram 
+# http://www.sthda.com/english/wiki/ggplot2-histogram-plot-quick-start-guide-r-software-and-data-visualization reference 
+
+ggplot(new_df, aes(x = AATK)) + geom_histogram()
+
+```
+```{r}
+ggplot(new_df, aes(x = AATK, y = age)) + geom_point()
 
 ```
 ```{r}
 
+ggplot(new_df, aes(y = AATK, x = age)) + geom_boxplot()
 ```
 
 
