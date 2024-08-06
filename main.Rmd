@@ -23,16 +23,19 @@ unique(series_matrix$mechanical_ventilation) # another categorial
 unique(series_matrix$age) # this one is covariate 
 
 # let's merge these two data sets together 
-head(genes)
-series_matrix
+new_df <- series_matrix[c('participant_id', 'disease_status', 'sex', 'age') ]
 
-new_df <- series_matrix[c('participant_id', 'disease_status', 'mechanical_ventilation', 'age') ]
-
+# get the genes. First column is just the name so slice from 2 onwards
+# getting the 29th gene in the row 
 one_genes <- genes[29, 2:length(genes)]
+
+# transpose and convert to dataframe
 temp_df <- as.data.frame(t(one_genes))
 colnames(temp_df) <- c('AATK')
 
+# assign the new colunm to the new_df which has the variables we want
 new_df$AATK<- temp_df$AATK
+
 ```
 
 ```{r}
@@ -41,16 +44,55 @@ library(ggplot2)
 # creating a histogram 
 # http://www.sthda.com/english/wiki/ggplot2-histogram-plot-quick-start-guide-r-software-and-data-visualization reference 
 
-ggplot(new_df, aes(x = AATK)) + geom_histogram()
+ggplot(new_df, aes(x = AATK)) + 
+  geom_histogram() + 
+  theme_classic()
 
 ```
 ```{r}
-ggplot(new_df, aes(x = AATK, y = age)) + geom_point()
-
-```
+# creating a scatter point
+ggplot(new_df, aes(x = age, y = AATK, color = disease_status)) + 
+  geom_point() +
+  scale_x_discrete(breaks = seq(0, 100, by = 10))+ 
+  xlab('Age (yrs)') + 
+  ylab('AATK')
+ ```
 ```{r}
 
-ggplot(new_df, aes(y = AATK, x = age)) + geom_boxplot()
+# https://stackoverflow.com/questions/55180015/use-geom-boxplot-with-variable-of-type-double-on-x-axis
+# Used this link to plot both box plots 
+
+ggplot(new_df, aes(y = AATK, x = disease_status, fill = sex)) +
+  geom_boxplot() +
+  labs(x = "Disease Status ", y = "AATK Value")
+```
+
+
+```{r}
+a <- function(new_df){
+  # plot the scatter
+  scatter <- ggplot(new_df, aes(x = age, y = AATK, color = disease_status)) + 
+  geom_point() +
+  scale_x_discrete(breaks = seq(0, 100, by = 10))+ 
+  xlab('Age (yrs)') + 
+  ylab('AATK')
+
+  # plot the box plot
+  box <- ggplot(new_df, aes(y = AATK, x = disease_status, fill = sex)) +
+    geom_boxplot() +
+    labs(x = "Disease Status ", y = "AATK Value")
+  
+  # plot the histogram
+  histo <- ggplot(new_df, aes(x = AATK)) + 
+  geom_histogram() + 
+  theme_classic()
+  
+  
+}
+
+a(new_df)
+
+
 ```
 
 
