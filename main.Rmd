@@ -19,22 +19,32 @@ genes <- read.csv('./data/QBS103_GSE157103_genes.csv')
 ```{r}
 head(series_matrix)
 unique(series_matrix$disease_status) # disease status is one categorical 
-unique(series_matrix$mechanical_ventilation) # another categorial 
-unique(series_matrix$age) # this one is covariate 
+unique(series_matrix$mechanical_ventilation) # another categorial
+```
 
-# let's merge these two data sets together 
-new_df <- series_matrix[c('participant_id', 'disease_status', 'sex', 'age') ]
 
-# get the genes. First column is just the name so slice from 2 onwards
-# getting the 29th gene in the row 
-one_genes <- genes[29, 2:length(genes)]
+```{r}
 
-# transpose and convert to dataframe
-temp_df <- as.data.frame(t(one_genes))
-colnames(temp_df) <- c('AATK')
+# function to transpose/prepare the data from series_matrix and genes
 
-# assign the new colunm to the new_df which has the variables we want
-new_df$AATK<- temp_df$AATK
+prepare_dataframe <- function(series_matrix, genes){
+  unique(series_matrix$age) # this one is covariate 
+
+  # let's merge these two data sets together 
+  
+  # transpose the genese dataframe
+  transposed_genes <- as.data.frame(t(genes))
+  colnames(transposed_genes) <- genes$X
+  transposed_genes <- temp_df[2:length(genes), ]
+  
+  
+  for (i in colnames(transposed_genes)){
+    series_matrix[[i]] <- as.numeric(transposed_genes[[i]])
+  }
+  
+  return(series_matrix)
+}
+
 
 ```
 
@@ -69,7 +79,8 @@ ggplot(new_df, aes(y = AATK, x = disease_status, fill = sex)) +
 
 
 ```{r}
-a <- function(new_df){
+a <- function(dataframe, list_of_genes, continuous_variable, categorical_covariates)
+  {
   # plot the scatter
   scatter <- ggplot(new_df, aes(x = age, y = AATK, color = disease_status)) + 
   geom_point() +
@@ -87,11 +98,12 @@ a <- function(new_df){
   geom_histogram() + 
   theme_classic()
   
-  
+  return(list(scatter, box, histo))
+
 }
 
-a(new_df)
 
+a(new_df)[3]
 
 ```
 
