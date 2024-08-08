@@ -8,18 +8,14 @@ date: "2024-07-20"
 ```{r}
 
 library(tidyverse)
+library(rlang)
+library(ggpubr)
 
 # import the csv
 
 series_matrix<- read.csv('./data/QBS103_GSE157103_series_matrix.csv')
 genes <- read.csv('./data/QBS103_GSE157103_genes.csv')
 
-```
-
-```{r}
-head(series_matrix)
-unique(series_matrix$disease_status) # disease status is one categorical 
-unique(series_matrix$mechanical_ventilation) # another categorial
 ```
 
 
@@ -35,76 +31,62 @@ prepare_dataframe <- function(series_matrix, genes){
   # transpose the genese dataframe
   transposed_genes <- as.data.frame(t(genes))
   colnames(transposed_genes) <- genes$X
-  transposed_genes <- temp_df[2:length(genes), ]
+  transposed_genes <- transposed_genes[2:length(genes), ]
   
-  
+
   for (i in colnames(transposed_genes)){
     series_matrix[[i]] <- as.numeric(transposed_genes[[i]])
   }
-  
+  print(series_matrix)
   return(series_matrix)
 }
 
+dataframe <- prepare_dataframe(series_matrix, genes)
 
 ```
 
 ```{r}
-library(ggplot2)
-
-# creating a histogram 
-# http://www.sthda.com/english/wiki/ggplot2-histogram-plot-quick-start-guide-r-software-and-data-visualization reference 
-
-ggplot(new_df, aes(x = AATK)) + 
-  geom_histogram() + 
-  theme_classic()
-
-```
-```{r}
-# creating a scatter point
-ggplot(new_df, aes(x = age, y = AATK, color = disease_status)) + 
-  geom_point() +
-  scale_x_discrete(breaks = seq(0, 100, by = 10))+ 
-  xlab('Age (yrs)') + 
-  ylab('AATK')
- ```
-```{r}
-
-# https://stackoverflow.com/questions/55180015/use-geom-boxplot-with-variable-of-type-double-on-x-axis
-# Used this link to plot both box plots 
-
-ggplot(new_df, aes(y = AATK, x = disease_status, fill = sex)) +
-  geom_boxplot() +
-  labs(x = "Disease Status ", y = "AATK Value")
-```
+# https://stackoverflow.com/questions/55132771/standard-eval-with-ggplot2-without-aes-string/55133909#55133909 
+# 
 
 
-```{r}
-a <- function(dataframe, list_of_genes, continuous_variable, categorical_covariates)
+generate_plots <- function(dataframe, list_of_genes, continuous_variable, categorical_covariates)
   {
-  # plot the scatter
-  scatter <- ggplot(new_df, aes(x = age, y = AATK, color = disease_status)) + 
-  geom_point() +
-  scale_x_discrete(breaks = seq(0, 100, by = 10))+ 
-  xlab('Age (yrs)') + 
-  ylab('AATK')
-
-  # plot the box plot
-  box <- ggplot(new_df, aes(y = AATK, x = disease_status, fill = sex)) +
-    geom_boxplot() +
-    labs(x = "Disease Status ", y = "AATK Value")
+  # This the continuous variables
+  # plots scatter
   
-  # plot the histogram
-  histo <- ggplot(new_df, aes(x = AATK)) + 
-  geom_histogram() + 
-  theme_classic()
+  for (gene in list_of_genes){
+    print(gene)
+    print(continuous_variable)
+    scatter <- ggplot(dataframe, aes(x = !!sym(continuous_variable), y = !!sym(gene) )) +
+    xlab(paste(continuous_variable, ' (years)')) + 
+    ylab(gene) + 
+    scale_x_discrete(breaks = seq(0, 100, by = 10)) + 
+    theme_classic() 
   
-  return(list(scatter, box, histo))
+    # this is for the two categorical variables
+    # plot the box plot
+    box <- ggplot(dataframe, aes(y = !!sym(gene), x = !!sym(categorical_covariates[1]), fill = !!sym(categorical_covariates[2]))) +
+      geom_boxplot(names(c('COVID', 'NON-COVID'))) +
+      labs(x = categorical_covariates[1], y = gene) + 
+      scale_x_discrete(labels = c("disease state: COVID-19" = "COVID-19", "disease state: non-COVID-19" = "non COVID-19")) +
+      theme(axis.text.x = element_text(angle = 0, hjust = 2, size = 8))  + 
+      theme_classic()
 
+    # plot the histogram
+    print(gene)
+    histo <- ggplot(dataframe, aes(x = !!sym(gene))) +
+    geom_histogram() +
+    theme_classic()
+    
+    print(ggarrange(histo, scatter, box, ncol = 2, nrow = 2))
+  }
 }
 
 
-a(new_df)[3]
 
+generate_plots(dataframe, c('AATK', 'A1BG', 'A2M'), 'age', c('disease_status', 'sex'))
 ```
+
 
 
