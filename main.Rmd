@@ -35,19 +35,59 @@ prepare_dataframe <- function(series_matrix, genes){
   
 
   for (i in colnames(transposed_genes)){
-    series_matrix[[i]] <- as.numeric(transposed_genes[[i]])
+    series_matrix[[i]] <- as.numeric(transposed_genes[[i]]) # convert the transposed data to numeric
   }
-  print(series_matrix)
   return(series_matrix)
 }
 
 dataframe <- prepare_dataframe(series_matrix, genes)
+dataframe <- subset(dataframe, sex != " unknown")
 
+colnames(dataframe)
+
+# discrete
+# sex, icu_status, disease_status 
+
+# continuous 
+# age, ferritin.ng.ml, charlson_score
+
+# ASK QUESTION ABOUT TABLES PLURAL
+
+selected_dataframe <- dataframe[c('sex', 'icu_status', 'disease_status', 'age', 'ferritin.ng.ml.', 'crp.mg.l.')]
+
+selected_dataframe$age <- as.numeric(selected_dataframe$age)
+selected_dataframe$ferritin.ng.ml. <- as.numeric(selected_dataframe$ferritin.ng.ml.)
+selected_dataframe$crp.mg.l. <- as.numeric(selected_dataframe$crp.mg.l.)
+
+table(selected_dataframe$sex)
+
+divider <- as.numeric(sum(table(selected_dataframe$disease_status)))
+
+summary_table <- selected_dataframe %>% 
+  dplyr::group_by(sex) %>% 
+  dplyr::summarise(`Age (mean) (years)` = mean(age, na.rm = TRUE),
+                   `Age (sd) (years)` = sd(age, na.rm = TRUE),
+                   `Ferritin (mean) (ng/ml)` = mean(ferritin.ng.ml., na.rm =  TRUE),
+                   `Ferritin (sd) (ng/ml)` = sd(ferritin.ng.ml., na.rm = TRUE),
+                   `CRP (mean) (mg/l)` = mean(crp.mg.l., na.rm = TRUE),
+                   `CRP (sd) (mg/l)` = sd(crp.mg.l., na.rm = TRUE),
+                   `Disease Status (n%)` = table(disease_status)/divider * 100,
+                   `Sex (n%)` = table(sex)/divider * 100,
+                   `ICU Status (n%)` = table(icu_status)/divider * 100
+                    )
+
+
+sum(table(selected_dataframe$disease_status))
+summary_table
+
+a <- subset(dataframe, sex == " female")
+
+table(a$disease_status)/divider
 ```
 
 ```{r}
 # https://stackoverflow.com/questions/55132771/standard-eval-with-ggplot2-without-aes-string/55133909#55133909 
-# 
+# source used form !!sym (to pass a string as a symbol in an aes environment)
 
 
 generate_plots <- function(dataframe, list_of_genes, continuous_variable, categorical_covariates)
@@ -58,35 +98,51 @@ generate_plots <- function(dataframe, list_of_genes, continuous_variable, catego
   for (gene in list_of_genes){
     print(gene)
     print(continuous_variable)
-    scatter <- ggplot(dataframe, aes(x = !!sym(continuous_variable), y = !!sym(gene) )) +
+    scatter <- ggplot(dataframe, aes(x = !!sym(continuous_variable)
+                                     , y = !!sym(gene))) +
+    geom_point() + 
     xlab(paste(continuous_variable, ' (years)')) + 
     ylab(gene) + 
     scale_x_discrete(breaks = seq(0, 100, by = 10)) + 
+    ggtitle(paste( "Expression of ", gene, " vs Age")) + 
     theme_classic() 
-  
+
     # this is for the two categorical variables
     # plot the box plot
-    box <- ggplot(dataframe, aes(y = !!sym(gene), x = !!sym(categorical_covariates[1]), fill = !!sym(categorical_covariates[2]))) +
+    box <- ggplot(dataframe, aes(y = !!sym(gene),
+                                 x = !!sym(categorical_covariates[1]),
+                                 fill = !!sym(categorical_covariates[2]))) +
       geom_boxplot(names(c('COVID', 'NON-COVID'))) +
       labs(x = categorical_covariates[1], y = gene) + 
-      scale_x_discrete(labels = c("disease state: COVID-19" = "COVID-19", "disease state: non-COVID-19" = "non COVID-19")) +
-      theme(axis.text.x = element_text(angle = 0, hjust = 2, size = 8))  + 
-      theme_classic()
+      scale_x_discrete(labels = c("disease state: COVID-19" = "COVID-19", 
+                                  "disease state: non-COVID-19" = "non COVID-19")) +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 8))  + 
+      ggtitle(paste(gene, "Expression by disease status", "and", categorical_covariates[2])) + theme_classic()
 
     # plot the histogram
     print(gene)
     histo <- ggplot(dataframe, aes(x = !!sym(gene))) +
     geom_histogram() +
-    theme_classic()
+    theme_classic() + 
+    ggtitle(paste( "Expression of ", gene))
     
-    print(ggarrange(histo, scatter, box, ncol = 2, nrow = 2))
+
+    return (list(box, histo, scatter))
   }
+  
 }
 
 
 
-generate_plots(dataframe, c('AATK', 'A1BG', 'A2M'), 'age', c('disease_status', 'sex'))
-```
+plots <- generate_plots(dataframe, c('A2M'), 'age', c('disease_status', 'sex') )
 
+plots[3]
 
+ggsave("boxplot.png", plot = plots[1], width = 8, height = 6)  # Adjust width/height as needed
 
+# Create your plot
+plot(x, y)
+
+# Close the device
+dev.off()```
+ 
