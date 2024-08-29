@@ -6,16 +6,24 @@ date: "2024-07-20"
 
 
 ```{r}
+# importing necessary libraries 
 
 library(tidyverse)
 library(rlang)
 library(ggpubr)
+library(pheatmap)
+
 
 # import the csv
-
 series_matrix<- read.csv('./data/QBS103_GSE157103_series_matrix.csv')
 genes <- read.csv('./data/QBS103_GSE157103_genes.csv')
 
+# example code for finding the package version and citations 
+
+# packageVersion('tidyverse')
+# packageVersion('rlang')
+# packageVersion('pheatmap')
+# citation('ggpubr')
 ```
 
 
@@ -28,7 +36,7 @@ prepare_dataframe <- function(series_matrix, genes){
 
   # let's merge these two data sets together 
   
-  # transpose the genese dataframe
+  # transpose the genes dataframe
   transposed_genes <- as.data.frame(t(genes))
   colnames(transposed_genes) <- genes$X
   transposed_genes <- transposed_genes[2:length(genes), ]
@@ -43,26 +51,26 @@ prepare_dataframe <- function(series_matrix, genes){
 dataframe <- prepare_dataframe(series_matrix, genes)
 dataframe <- subset(dataframe, sex != " unknown")
 
-colnames(dataframe)
-
 # discrete
 # sex, icu_status, disease_status 
 
 # continuous 
 # age, ferritin.ng.ml, charlson_score
 
-# ASK QUESTION ABOUT TABLES PLURAL
-
+# Select the chosen discrete and continious variables
 selected_dataframe <- dataframe[c('sex', 'icu_status', 'disease_status', 'age', 'ferritin.ng.ml.', 'crp.mg.l.')]
 
+# ensure that they are treated as numeric
 selected_dataframe$age <- as.numeric(selected_dataframe$age)
 selected_dataframe$ferritin.ng.ml. <- as.numeric(selected_dataframe$ferritin.ng.ml.)
 selected_dataframe$crp.mg.l. <- as.numeric(selected_dataframe$crp.mg.l.)
 
 table(selected_dataframe$sex)
 
+# find the divider for calculation of n%
 divider <- as.numeric(sum(table(selected_dataframe$disease_status)))
 
+# generate the summary table
 summary_table <- selected_dataframe %>% 
   dplyr::group_by(sex) %>% 
   dplyr::summarise(`Age (mean) (years)` = mean(age, na.rm = TRUE),
@@ -76,13 +84,16 @@ summary_table <- selected_dataframe %>%
                    `ICU Status (n%)` = table(icu_status)/divider * 100
                     )
 
+# In order to calculate summary statistics of n% for male and female seperately, the following code was used
 
-sum(table(selected_dataframe$disease_status))
-summary_table
+a <- subset(dataframe, sex == "Male")
+table(a$disease_status)/sum(table(a$disease_status))
+table(a$icu_status)/sum(table(a$icu_status))
 
-a <- subset(dataframe, sex == " female")
+b <- subset(dataframe, sex == "Female")
+table(b$disease_status)/sum(table(b$disease_status))
+table(b$icu_status)/sum(table(b$icu_status))
 
-table(a$disease_status)/divider
 ```
 
 ```{r}
@@ -99,13 +110,15 @@ generate_plots <- function(dataframe, list_of_genes, continuous_variable, catego
     print(gene)
     print(continuous_variable)
     scatter <- ggplot(dataframe, aes(x = !!sym(continuous_variable)
-                                     , y = !!sym(gene))) +
+                                     , y = !!sym(gene), color = sex)) +
     geom_point() + 
-    xlab(paste(continuous_variable, ' (years)')) + 
-    ylab(gene) + 
+    xlab('Age (years)') + 
+    ylab(paste(gene, ' Expression')) + 
     scale_x_discrete(breaks = seq(0, 100, by = 10)) + 
     ggtitle(paste( "Expression of ", gene, " vs Age")) + 
+    labs(color = "Sex") + 
     theme_classic() 
+  
 
     # this is for the two categorical variables
     # plot the box plot
@@ -125,24 +138,66 @@ generate_plots <- function(dataframe, list_of_genes, continuous_variable, catego
     geom_histogram() +
     theme_classic() + 
     ggtitle(paste( "Expression of ", gene))
-    
+
+    # save the plots 
+    ggsave("boxplot.png", plot = box)
+    ggsave("scatterplot.png", plot = scatter)
+    ggsave("histogram.png", plot = histo)
 
     return (list(box, histo, scatter))
   }
   
 }
 
-
-
 plots <- generate_plots(dataframe, c('A2M'), 'age', c('disease_status', 'sex') )
-
+plots[1]
+plots[2]
 plots[3]
+```
+```{r}
 
-ggsave("boxplot.png", plot = plots[1], width = 8, height = 6)  # Adjust width/height as needed
+# select 10 genes
+genes_vector <- c("A2M", "AASDHPPT", "AASS", "AATF", "AATK", "ABAT", "ABCA1", "ABCA10", "ABCA12", "ABCA13", "ABCA2")
 
-# Create your plot
-plot(x, y)
+# create a dataframe with those genes
+gene_df <- select(dataframe, genes_vector)
 
-# Close the device
-dev.off()```
+# generate the annotation dataframe
+annotation <- select(dataframe, c("sex", "disease_status"))  # Include 'sex' and 'disease_status
+
+# rename for clarity 
+annotation$disease_status <- ifelse(annotation$disease_status=="disease state: COVID-19", 'COVID-19', 'non-COVID-19')
+annotation$sex <- ifelse(annotation$sex==" female", 'Female', 'Male')
+colnames(annotation) <- c('Sex', 'Disease Status')
+
+# transpose gene dataframe for heatmap generation
+transposed_ndf <- t(gene_df)
+
+# generate the heatmap using euclidean clustering
+pheatmap(transposed_ndf, 
+         clustering_distance_rows = "euclidean", 
+         clustering_distance_cols = "euclidean", 
+         clustering_method = "complete",
+         scale = "row",
+         annotation_col = annotation, 
+         show_colnames = FALSE)
+
+```
+
+```{r}
+# Generate a QQ plot 
+dataframe$sex <- ifelse(dataframe$sex==" female", 'Female', 'Male')
+
+ggplot(dataframe, aes(sample = A2M)) +
+  stat_qq(aes(color = sex)) +
+  scale_color_manual(values = c("#00AFBB", "#E7B800"))+
+  labs(y = "Expression of A2M") + 
+  theme_classic() + 
+  ggtitle('QQ plot of A2M Expression') + 
+  xlab('Theoretical Normal Distribution') +
+  labs(color = "Sex") 
+  ggsave(('qq_plot.png'))
+
+
+```
  
